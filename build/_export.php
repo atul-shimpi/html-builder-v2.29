@@ -1,0 +1,123 @@
+<?php
+
+     function deleteDirectory($dir) {
+                 if (!file_exists($dir)) { return true; }
+
+                 if (!is_dir($dir) || is_link($dir)) {
+                     return unlink($dir);
+                 }
+
+                 foreach (scandir($dir) as $item) {
+                     if ($item == '.' || $item == '..') { continue; }
+
+                     if (!deleteDirectory($dir . "/" . $item)) {
+                         chmod($dir . "/" . $item, 0777);
+                         if (!deleteDirectory($dir . "/" . $item)) return false;
+                     }
+                 }
+
+                 return rmdir($dir);
+             }
+
+	/* CONFIG */
+
+	$pathToAssets = array("elements/bundles");
+
+	$filename = "tmp/website.zip"; //use the /tmp folder to circumvent any permission issues on the root folder
+
+	/* END CONFIG */
+
+
+	$zip = new ZipArchive();
+
+	$zip->open($filename, ZipArchive::CREATE);
+
+
+	//add folder structure
+
+
+	foreach( $pathToAssets as $thePath ) {
+
+		// Create recursive directory iterator
+		$files = new RecursiveIteratorIterator(
+	    	new RecursiveDirectoryIterator( $thePath ),
+	    	RecursiveIteratorIterator::LEAVES_ONLY
+		);
+
+		foreach ($files as $name => $file) {
+
+			if( $file->getFilename() != '.' && $file->getFilename() != '..' ) {
+                //copy( '/var/wwww'.$_POST['siteName']);
+	    		// Get real path for current file
+	    		$filePath = $file->getRealPath();
+
+	    		$temp = explode("/", $name);
+
+	    		array_shift( $temp );
+
+	    		$newName = implode("/", $temp);
+
+	    		// Add current file to archive
+	    		$zip->addFile($filePath, $newName);
+
+	    	}
+
+		}
+
+	}
+
+
+
+
+	foreach( $_POST['pages'] as $page=>$content ) {
+
+		$pageContent = stripslashes($content);
+		$pageContent = str_replace("../bundles/", "bundles/", $pageContent);
+
+		$zip->addFromString($page.".html", $_POST['doctype']."\n".stripslashes($pageContent));
+
+		//echo $content;
+
+	}
+
+	//$zip->addFromString("testfilephp.txt" . time(), "#1 This is a test string added as testfilephp.txt.\n");
+	//$zip->addFromString("testfilephp2.txt" . time(), "#2 This is a test string added as testfilephp2.txt.\n");
+
+	$zip->close();
+
+
+	$yourfile = $filename;
+
+	$file_name = basename($yourfile);
+
+	/*header("Content-Type: application/zip");
+	header("Content-Transfer-Encoding: Binary");
+	header("Content-Disposition: attachment; filename=$file_name");
+	header("Content-Length: " . filesize($yourfile));*/
+
+
+	//readfile($yourfile);
+
+	 deleteDirectory('/var/www/'.$_POST['site-name']);
+     $sitezip = new ZipArchive;
+     if ($sitezip->open($filename) === TRUE) {
+         $sitezip->extractTo('/var/www/'.$_POST['site-name']);
+         $sitezip->close();
+         //echo 'ok';
+     } else {
+         ///echo 'failed';
+     }
+
+
+	unlink('website.zip');
+
+	$return = [];
+	$return['responseCode'] = 0;
+    $return['responseHTML'] = '<h5>Hooray!</h5> <p>The site was published successfully!</p>';
+
+	echo json_encode($return);
+
+	exit;
+
+
+?>
